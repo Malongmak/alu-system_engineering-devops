@@ -1,8 +1,35 @@
-#!/usr/bin/env bash
-#setting up nginx server
-sudo apt-get -y update
-sudo apt-get -y install nginx
-sudo ufw allow 'Nginx HTTP'
-echo "Holberton School" | sudo tee /var/www/html/index.nginx-debian.html
-sudo sed -i "/listen 80 default_server;/a rewrite ^/redirect_me https://onepiece.fandom.com/wiki/One_Piece_Wiki permanent;" /etc/nginx/sites-enabled/default
-sudo service nginx restart
+#!/bin/bash
+
+# Check if the script is run as root
+if [ "$EUID" -ne 0 ]; then
+    echo "Please run this script as root."
+    exit 1
+fi
+
+# Update package lists and install Nginx
+apt-get update
+apt-get install -y nginx
+
+# Check if Nginx is running
+if ! systemctl is-active --quiet nginx; then
+    echo "Nginx is not running. Please check the installation."
+    exit 1
+fi
+
+# Create a backup of the default Nginx configuration
+cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.backup
+
+# Modify the Nginx configuration to include the redirection
+sed -i '/location \/ {/a \\n    location \/redirect_me {\n        return 301 https:\/\/www.example.com\/new-page;\n    }\n' /etc/nginx/sites-available/default
+
+# Test the Nginx configuration for syntax errors
+nginx -t
+
+# If the syntax is correct, reload Nginx to apply changes
+if [ $? -eq 0 ]; then
+    systemctl reload nginx
+    echo "Nginx configured to redirect /redirect_me to another page with 301 Moved Permanently."
+else
+    echo "There was an error in the Nginx configuration. Please check the syntax and try again."
+fi
+
